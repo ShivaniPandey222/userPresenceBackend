@@ -1,5 +1,8 @@
 package com.userPresence1.userPresence1;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -10,49 +13,89 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
 @RequestMapping("/notes")
-@CrossOrigin(origins = {"http://localhost:4900", "http://localhost:4901", "http://localhost:4902","http://localhost:4800","http://localhost:4801"},
+@CrossOrigin(origins = {"http://localhost:4900", "http://localhost:4901", "http://localhost:4908","http://localhost:4800","http://localhost:4801"},
         methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS})
 public class NoteController {
-
+    NoteService noteService;
     private final Map<String, String> notes = new ConcurrentHashMap<>();
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> noteEmitters = new ConcurrentHashMap<>();
+    private static final Logger logger = LoggerFactory.getLogger(NoteController.class);
 
-
-    public NoteController() {
+    public NoteController(NoteService noteService) {
+        logger.info("heloo cc");
         // Sample Notes
         notes.put("note-1", "Learn about components, services, and routing.");
         notes.put("note-2", "Understanding controllers, services, and repositories.");
         notes.put("note-3", "Real-time updates using Server-Sent Events.");
+        this.noteService = noteService;
+
+        // ✅ Load existing notes from DB into the in-memory map
+        for (Note note : noteService.getAllNotes()) {
+            notes.put(note.getId().toString(), note.getContent());
+        }
     }
 
     /** ✅ Get latest note content */
     @GetMapping("/{noteId}")
     public ResponseEntity<Map<String, String>> getNote(@PathVariable String noteId) {
-        String content = notes.getOrDefault(noteId, "No content available.");
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
+        String content = notes.getOrDefault(noteIdd, "No content available.");
 //        return ResponseEntity.ok(Collections.singletonMap("content", content));
         return ResponseEntity.ok(Map.of(
-                "title", "Note " + noteId,  // ✅ Adding title
+                "title", "Note " + noteIdd,  // ✅ Adding title
                 "content", content
         ));
     }
 
     /** ✅ Save updated note content */
+//    @PostMapping("/save")
+//    public ResponseEntity<String> saveNote(@RequestBody Map<String, String> request) {
+//        System.out.println("🟢 Received API call: /save");
+//        String noteId = request.get("noteId");
+//        String content = request.get("content");
+//
+//        if (noteId == null || content == null) {
+//            return ResponseEntity.badRequest().body("Invalid request data");
+//        }
+//
+//        notes.put(noteId, content);
+//        notifyClients(noteId, content);
+//
+//        System.out.println("✅ Note saved: " + noteId + " -> " + content);
+//        return ResponseEntity.ok("Note saved successfully");
+//    }
+
     @PostMapping("/save")
     public ResponseEntity<String> saveNote(@RequestBody Map<String, String> request) {
         System.out.println("🟢 Received API call: /save");
-        String noteId = request.get("noteId");
+
+        String noteId = request.get("noteId")+"";
         String content = request.get("content");
 
         if (noteId == null || content == null) {
             return ResponseEntity.badRequest().body("Invalid request data");
         }
 
+        // ✅ Update the in-memory map
         notes.put(noteId, content);
-        notifyClients(noteId, content);
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
 
-        System.out.println("✅ Note saved: " + noteId + " -> " + content);
+        System.out.println("entering db");
+        // ✅ Update in database
+        Optional<Note> existingNote = noteService.getNote(Long.parseLong(noteIdStr));
+        if (existingNote.isPresent()) {
+            Note note = existingNote.get();
+            note.setContent(content);
+            noteService.save(note);
+        }
+
+        System.out.println("db updated");
+        // Notify clients
+        notifyClients(noteId, content);
         return ResponseEntity.ok("Note saved successfully");
     }
+
 
     /** ✅ Subscribe users to content updates */
     @GetMapping("/subscribe/{noteId}")
@@ -112,5 +155,67 @@ public class NoteController {
             return emitters.isEmpty() ? null : emitters;
         });
     }
+
+    @PostMapping("/create")
+    public ResponseEntity<Map<String, String>> createNote(@RequestBody Map<String, String> request) {
+        String title = request.get("title");
+        String content = request.get("content");
+
+        if (title == null || content == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Title and content are required"));
+        }
+
+        // ✅ Save to database
+        Note savedNote = noteService.createNote(title, content);
+
+        // ✅ Store in the in-memory map
+        notes.put(savedNote.getId().toString(), savedNote.getContent());
+
+        // Notify users with title and content
+        notifyClients(savedNote.getId().toString(), savedNote.getContent());
+        broadcastNewNote(savedNote);
+
+        return ResponseEntity.ok(Map.of("noteId", savedNote.getId().toString(), "message", "Note created successfully"));
+    }
+
+    private void broadcastNewNote(Note note) {
+        for (String noteId : noteEmitters.keySet()) {
+            notifyClients(noteId, note.getContent());
+        }
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Map<String, String>>> getAllNotes() {
+
+//        List<Map<String, String>> noteList = noteService.getAllNotes().stream()
+//                .map(note -> Map.of(
+//                        "id", note.getId().toString(),
+//                        "title", note.getTitle(),
+//                        "content", note.getContent()
+//                ))
+//                .toList();
+
+        List<Map<String, String>> noteList = new ArrayList<>();
+        // ✅ Add hardcoded notes
+        noteList.add(Map.of("id", "note-1", "title", "Note 1", "content", "Learn about components, services, and routing."));
+        noteList.add(Map.of("id", "note-2", "title", "Note 2", "content", "Understanding controllers, services, and repositories."));
+        noteList.add(Map.of("id", "note-3", "title", "Note 3", "content", "Real-time updates using Server-Sent Events."));
+
+        // ✅ Add notes from the database
+        noteList.addAll(noteService.getAllNotes().stream()
+                .map(note -> Map.of(
+                        "id", note.getId().toString(),
+                        "title", note.getTitle(),
+                        "content", note.getContent()
+                ))
+                .toList());
+
+        return ResponseEntity.ok(noteList);
+    }
+
+
+
+
+
 
 }
