@@ -186,18 +186,19 @@ public class PresenceController {
         try {
             String noteId = request.get("noteId");
             String username = request.get("username");
-
-            if (noteId == null || username == null) {
+            String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+            Long noteIdd=Long.parseLong(noteIdStr);
+            if (noteIdd == null || username == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Invalid request"));
             }
 
             logger.info("🟢 Adding user '{}' to note '{}'", username, noteId);
-            presenceService.addUser(noteId, username); // This might be failing!
-            notifyPresenceUpdate(noteId);
+            presenceService.addUser(noteIdStr, username); // This might be failing!
+            notifyPresenceUpdate(noteIdStr);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Presence updated");
-            response.put("users", presenceService.getUsersViewing(noteId));
+            response.put("users", presenceService.getUsersViewing(noteIdStr));
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -211,17 +212,18 @@ public class PresenceController {
     public ResponseEntity<Map<String, Object>> removeUser(@RequestBody Map<String, String> request) {
         String noteId = request.get("noteId");
         String username = request.get("username");
-
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
         if (noteId == null || username == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid request"));
         }
 
-        presenceService.removeUser(noteId, username);
-        notifyPresenceUpdate(noteId);
+        presenceService.removeUser(noteIdStr, username);
+        notifyPresenceUpdate(noteIdStr);
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "User removed");
-        response.put("users", presenceService.getUsersViewing(noteId));
+        response.put("users", presenceService.getUsersViewing(noteIdStr));
         return ResponseEntity.ok(response);
     }
 
@@ -229,19 +231,21 @@ public class PresenceController {
     @GetMapping("/subscribe/{noteId}")
     public SseEmitter subscribeToPresence(@PathVariable String noteId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        presenceEmitters.computeIfAbsent(noteId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
+        presenceEmitters.computeIfAbsent(noteIdStr, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
-        emitter.onCompletion(() -> removePresenceEmitter(noteId, emitter));
-        emitter.onTimeout(() -> removePresenceEmitter(noteId, emitter));
-
-        notifyPresenceUpdate(noteId);
+        emitter.onCompletion(() -> removePresenceEmitter(noteIdStr, emitter));
+        emitter.onTimeout(() -> removePresenceEmitter(noteIdStr, emitter));
+        emitter.onError((e) -> removePresenceEmitter(noteIdStr, emitter));
+        notifyPresenceUpdate(noteIdStr);
 
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
             try {
                 emitter.send(SseEmitter.event().name("ping").data("heartbeat"));
             } catch (IOException e) {
-                logger.warn("Failed to send heartbeat to note {}: {}", noteId, e.getMessage());
-                removePresenceEmitter(noteId, emitter);
+                logger.warn("Failed to send heartbeat to note {}: {}", noteIdStr, e.getMessage());
+                removePresenceEmitter(noteIdStr, emitter);
                 emitter.complete();
             }
         }, 30, 30, TimeUnit.SECONDS);
@@ -251,10 +255,12 @@ public class PresenceController {
 
     /** ✅ Notify clients about user presence updates */
     public void notifyPresenceUpdate(String noteId) {
-        List<SseEmitter> emitters = presenceEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>());
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
+        List<SseEmitter> emitters = presenceEmitters.getOrDefault(noteIdd, new CopyOnWriteArrayList<>());
         Set<String> users = presenceService.getUsersViewing(noteId);
 
-        logger.info("Notifying presence update for note {}: {}", noteId, users);
+        logger.info("Notifying presence update for note {}: {}", noteIdStr, users);
 
         List<SseEmitter> failedEmitters = new ArrayList<>();
 
@@ -262,25 +268,28 @@ public class PresenceController {
             try {
                 emitter.send(SseEmitter.event().name("user-presence").data(users));
             } catch (IOException e) {
-                logger.error("Failed to send SSE update for note {}: {}", noteId, e.getMessage());
+                logger.error("Failed to send SSE update for note {}: {}", noteIdStr, e.getMessage());
                 failedEmitters.add(emitter);
+                emitter.complete();  // force completion on failure
             }
         }
 
         // Remove failed emitters
         emitters.removeAll(failedEmitters);
         if (emitters.isEmpty()) {
-            presenceEmitters.remove(noteId);
+            presenceEmitters.remove(noteIdStr);
         }
     }
 
     /** ✅ Remove disconnected SSE subscribers */
     private void removePresenceEmitter(String noteId, SseEmitter emitter) {
-        presenceEmitters.computeIfPresent(noteId, (key, emitters) -> {
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
+        presenceEmitters.computeIfPresent(noteIdStr, (key, emitters) -> {
             emitters.remove(emitter);
             return emitters.isEmpty() ? null : emitters;
         });
 //       presenceService.removeUser(noteId, username);
-        notifyPresenceUpdate(noteId);
+        notifyPresenceUpdate(noteIdStr);
     }
 }

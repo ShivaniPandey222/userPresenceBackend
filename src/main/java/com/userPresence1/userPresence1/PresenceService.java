@@ -60,7 +60,9 @@ public class PresenceService {
 
     /** Add user to presence tracking in Redis */
     public void addUser(String noteId, String username) {
-        redisTemplate.opsForSet().add("presence:" + noteId, username);
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
+        redisTemplate.opsForSet().add("presence:" + noteIdStr, username);
         logger.info("Added user '{}' to Redis for note '{}'", username, noteId);
         try {
             Thread.sleep(100); // Small delay to ensure Redis updates
@@ -73,7 +75,9 @@ public class PresenceService {
     /** ✅ Remove user from presence tracking */
     public void removeUser(String noteId, String username) {
 //        redisTemplate.opsForSet().remove("presence:" + noteId, username);
-        Long removed = redisTemplate.opsForSet().remove("presence:" + noteId, username);
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
+        Long removed = redisTemplate.opsForSet().remove("presence:" + noteIdStr, username);
 
         if (removed != null && removed > 0) {
             logger.info("Removed user '{}' from Redis for note '{}'", username, noteId);
@@ -85,7 +89,9 @@ public class PresenceService {
     /** ✅ Get list of users currently viewing a note */
     public Set<String> getUsersViewing(String noteId) {
 //        return redisTemplate.opsForSet().members("presence:" + noteId);
-        String key = "presence:" + noteId;
+        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+        Long noteIdd=Long.parseLong(noteIdStr);
+        String key = "presence:" + noteIdStr;
         Set<String> users = redisTemplate.opsForSet().members(key);
 
         if (users == null) {
