@@ -18,6 +18,8 @@ public class GlobalCorsConfig implements WebMvcConfigurer {
                         "http://localhost:4801"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("Content-Type", "Authorization", "X-Requested-With", "Accept")
+                .exposedHeaders("Content-Type") // optional: to expose SSE headers
                 .allowedHeaders("*")
                 .allowCredentials(true);
     }

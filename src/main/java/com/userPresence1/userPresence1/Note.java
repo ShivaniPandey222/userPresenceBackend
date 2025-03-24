@@ -1,9 +1,6 @@
 package com.userPresence1.userPresence1;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,17 +8,16 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Note {
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
     private String title;
 
     public String getContent() {
@@ -31,7 +27,12 @@ public class Note {
     public void setContent(String content) {
         this.content = content;
     }
-
+    @PrePersist
+    public void generateId() {
+        if (this.id == null) {
+            this.id = java.util.UUID.randomUUID().toString();
+        }
+    }
     private String content;
 
     public String getTitle() {

@@ -15,11 +15,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+
                 .cors(Customizer.withDefaults()) // ✅ Updated CORS integration (non-deprecated)
                 .csrf(csrf -> csrf.disable()) // disable CSRF if you're building APIs
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // stateless
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/notes/subscribe/**").permitAll()
                         .requestMatchers("/notes/**").permitAll()// allow notes endpoint (example)
                         .requestMatchers("/presence/**").permitAll() // allow your SSE/presence endpoint
                         .anyRequest().authenticated()

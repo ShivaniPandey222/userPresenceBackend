@@ -186,19 +186,17 @@ public class PresenceController {
         try {
             String noteId = request.get("noteId");
             String username = request.get("username");
-            String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
-            Long noteIdd=Long.parseLong(noteIdStr);
-            if (noteIdd == null || username == null) {
+            if (noteId == null || username == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Invalid request"));
             }
 
             logger.info("🟢 Adding user '{}' to note '{}'", username, noteId);
-            presenceService.addUser(noteIdStr, username); // This might be failing!
-            notifyPresenceUpdate(noteIdStr);
+            presenceService.addUser(noteId, username); // This might be failing!
+            notifyPresenceUpdate(noteId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Presence updated");
-            response.put("users", presenceService.getUsersViewing(noteIdStr));
+            response.put("users", presenceService.getUsersViewing(noteId));
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -212,18 +210,18 @@ public class PresenceController {
     public ResponseEntity<Map<String, Object>> removeUser(@RequestBody Map<String, String> request) {
         String noteId = request.get("noteId");
         String username = request.get("username");
-        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
-        Long noteIdd=Long.parseLong(noteIdStr);
+//        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+//        Long noteIdd=Long.parseLong(noteIdStr);
         if (noteId == null || username == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid request"));
         }
 
-        presenceService.removeUser(noteIdStr, username);
-        notifyPresenceUpdate(noteIdStr);
+        presenceService.removeUser(noteId, username);
+        notifyPresenceUpdate(noteId);
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "User removed");
-        response.put("users", presenceService.getUsersViewing(noteIdStr));
+        response.put("users", presenceService.getUsersViewing(noteId));
         return ResponseEntity.ok(response);
     }
 
@@ -255,12 +253,12 @@ public class PresenceController {
 
     /** ✅ Notify clients about user presence updates */
     public void notifyPresenceUpdate(String noteId) {
-        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
-        Long noteIdd=Long.parseLong(noteIdStr);
-        List<SseEmitter> emitters = presenceEmitters.getOrDefault(noteIdd, new CopyOnWriteArrayList<>());
+//        String noteIdStr = noteId.replaceAll("[^0-9]", ""); // removes non-numeric chars
+//        Long noteIdd=Long.parseLong(noteIdStr);
+        List<SseEmitter> emitters = presenceEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>());
         Set<String> users = presenceService.getUsersViewing(noteId);
 
-        logger.info("Notifying presence update for note {}: {}", noteIdStr, users);
+        logger.info("Notifying presence update for note {}: {}", noteId, users);
 
         List<SseEmitter> failedEmitters = new ArrayList<>();
 
@@ -268,7 +266,7 @@ public class PresenceController {
             try {
                 emitter.send(SseEmitter.event().name("user-presence").data(users));
             } catch (IOException e) {
-                logger.error("Failed to send SSE update for note {}: {}", noteIdStr, e.getMessage());
+                logger.error("Failed to send SSE update for note {}: {}", noteId, e.getMessage());
                 failedEmitters.add(emitter);
                 emitter.complete();  // force completion on failure
             }
@@ -277,7 +275,7 @@ public class PresenceController {
         // Remove failed emitters
         emitters.removeAll(failedEmitters);
         if (emitters.isEmpty()) {
-            presenceEmitters.remove(noteIdStr);
+            presenceEmitters.remove(noteId);
         }
     }
 
