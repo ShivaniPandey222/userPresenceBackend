@@ -57,6 +57,7 @@ public class PresenceController {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Presence updated");
         response.put("users", presenceService.getUsersViewing(noteId.toString()));
+        System.out.println("----1"+response);
         return ResponseEntity.ok(response);
     }
 
