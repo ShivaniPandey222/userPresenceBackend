@@ -20,6 +20,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // stateless
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/notes/subscribeNew/global").permitAll()
                         .requestMatchers("/notes/**").permitAll()// allow notes endpoint (example)
                         .requestMatchers("/presence/**").permitAll() // allow your SSE/presence endpoint
                         .anyRequest().authenticated()
