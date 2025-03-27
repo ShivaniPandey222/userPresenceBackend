@@ -13,6 +13,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/presence")
@@ -92,9 +95,55 @@ public class PresenceController {
     /**
      * Subscribe to presence updates via SSE.
      */
+//    @GetMapping("/subscribe/{noteId}")
+//    public SseEmitter subscribeToPresence(@PathVariable UUID noteId) {
+//        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+//        presenceEmitters.computeIfAbsent(noteId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+//
+//        emitter.onCompletion(() -> removeEmitter(noteId, emitter));
+//        emitter.onTimeout(() -> removeEmitter(noteId, emitter));
+//        emitter.onError((e) -> removeEmitter(noteId, emitter));
+//
+//        try {
+//            emitter.send(SseEmitter.event().name("connection").data("Connected to SSE"));
+//        } catch (IOException e) {
+//            emitter.complete();
+//        }
+//        return emitter;
+//    }
+
+    ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
+
+//    @GetMapping("/subscribe/{noteId}")
+//    public SseEmitter subscribeToPresence(@PathVariable UUID noteId) {
+//        SseEmitter emitter = new SseEmitter(15_000L);
+//        presenceEmitters.computeIfAbsent(noteId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+//
+//        emitter.onCompletion(() -> removeEmitter(noteId, emitter));
+//        emitter.onTimeout(() -> removeEmitter(noteId, emitter));
+//        emitter.onError((e) -> removeEmitter(noteId, emitter));
+//
+//        try {
+//            emitter.send(SseEmitter.event().name("connection").data("Connected to SSE"));
+//        } catch (IOException e) {
+//            emitter.complete();
+//        }
+//
+//        // Heartbeat every 30s
+//        scheduler.scheduleAtFixedRate(() -> {
+//            try {
+//                emitter.send(SseEmitter.event().name("ping").data("Still connected"));
+//            } catch (IOException e) {
+//                emitter.complete();
+//            }
+//        }, 10, 10, TimeUnit.SECONDS);
+//
+//        return emitter;
+//    }
+
     @GetMapping("/subscribe/{noteId}")
     public SseEmitter subscribeToPresence(@PathVariable UUID noteId) {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        SseEmitter emitter = new SseEmitter(8_000L); // Timeout every 8s
         presenceEmitters.computeIfAbsent(noteId, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
         emitter.onCompletion(() -> removeEmitter(noteId, emitter));
@@ -106,9 +155,13 @@ public class PresenceController {
         } catch (IOException e) {
             emitter.complete();
         }
+
         return emitter;
     }
 
+    private void removeEmitter(UUID noteId, SseEmitter emitter) {
+        presenceEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>()).remove(emitter);
+    }
     /**
      * Notify all SSE subscribers about the current presence for a note.
      */
@@ -138,11 +191,11 @@ public class PresenceController {
     /**
      * Remove a disconnected SSE subscriber.
      */
-    private void removeEmitter(UUID noteId, SseEmitter emitter) {
-        presenceEmitters.computeIfPresent(noteId, (key, emitters) -> {
-            emitters.remove(emitter);
-            return emitters.isEmpty() ? null : emitters;
-        });
-        notifyPresenceUpdate(noteId);
-    }
+//    private void removeEmitter(UUID noteId, SseEmitter emitter) {
+//        presenceEmitters.computeIfPresent(noteId, (key, emitters) -> {
+//            emitters.remove(emitter);
+//            return emitters.isEmpty() ? null : emitters;
+//        });
+//        notifyPresenceUpdate(noteId);
+//    }
 }

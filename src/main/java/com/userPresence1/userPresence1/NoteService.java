@@ -34,4 +34,8 @@ public class NoteService {
     public List<Note> getAllNotes() {
         return noteRepository.findAll();
     }
+
+    public void deleteNote(UUID id) {
+        noteRepository.deleteById(id);
+    }
 }

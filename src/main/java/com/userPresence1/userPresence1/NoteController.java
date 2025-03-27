@@ -75,7 +75,7 @@ public class NoteController {
             noteService.save(note);
         }
 
-        notifyClients(noteId, content);
+//        notifyClients(noteId, content);
         return ResponseEntity.ok("Note saved successfully");
     }
 
@@ -265,5 +265,15 @@ public class NoteController {
             emitter.complete();
         }
         return emitter;
+    }
+
+    @DeleteMapping("/{noteId}")
+    public ResponseEntity<String> deleteNote(@PathVariable UUID noteId) {
+        // Remove from database
+        noteService.deleteNote(noteId);
+        // Remove from in-memory cache
+        notes.remove(noteId);
+        // Optionally, notify SSE subscribers if needed (e.g., to update the global list)
+        return ResponseEntity.ok("Note deleted successfully");
     }
 }
