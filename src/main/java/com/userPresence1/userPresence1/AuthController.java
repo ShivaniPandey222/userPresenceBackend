@@ -17,7 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AuthController {
     private final Map<String, String> users = new HashMap<>(Map.of(
             "admin", "admin123",
-            "user", "user123"
+            "user", "user123",
+            "1","1",
+            "2","2"
     ));
 
     // In-memory dummy user store for demo purpose

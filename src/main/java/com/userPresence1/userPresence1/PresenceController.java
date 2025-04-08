@@ -8,13 +8,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.UUID;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @RestController
@@ -50,12 +46,12 @@ public class PresenceController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid note ID format"));
         }
 
-        logger.info("🟢 Adding user '{}' to note '{}'", username, noteId);
+        logger.info("Adding user '{}' to note '{}'", username, noteId);
         long startTime = System.currentTimeMillis();
         presenceService.addUser(noteId.toString(), username);
-        logger.info("Added user in {} ms", System.currentTimeMillis() - startTime);
+//        logger.info("Added user in {} ms", System.currentTimeMillis() - startTime);
         notifyPresenceUpdate(noteId);
-        logger.info("Notified presence in {} ms", System.currentTimeMillis() - startTime);
+//        logger.info("Notified presence in {} ms", System.currentTimeMillis() - startTime);
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Presence updated");
@@ -143,7 +139,7 @@ public class PresenceController {
 
     @GetMapping("/subscribe/{noteId}")
     public SseEmitter subscribeToPresence(@PathVariable UUID noteId) {
-        SseEmitter emitter = new SseEmitter(8_000L); // Timeout every 8s
+        SseEmitter emitter = new SseEmitter(0L);
         presenceEmitters.computeIfAbsent(noteId, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
         emitter.onCompletion(() -> removeEmitter(noteId, emitter));
@@ -152,19 +148,50 @@ public class PresenceController {
 
         try {
             emitter.send(SseEmitter.event().name("connection").data("Connected to SSE"));
+//            Thread.sleep(30000);
         } catch (IOException e) {
             emitter.complete();
         }
-
+        // Heartbeat every 30s
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                emitter.send(SseEmitter.event().name("ping").data("Still connected"));
+            } catch (IOException e) {
+                emitter.complete();
+            }
+        }, 10, 10, TimeUnit.SECONDS);
         return emitter;
     }
 
-    private void removeEmitter(UUID noteId, SseEmitter emitter) {
-        presenceEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>()).remove(emitter);
-    }
+//    private void removeEmitter(UUID noteId, SseEmitter emitter) {
+//        presenceEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>()).remove(emitter);
+//    }
     /**
      * Notify all SSE subscribers about the current presence for a note.
      */
+//    public void notifyPresenceUpdate(UUID noteId) {
+//        String key = noteId.toString();
+//        List<SseEmitter> emitters = presenceEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>());
+//        Set<String> users = presenceService.getUsersViewing(key);
+//
+//        logger.info("Notifying presence update for note {}: {}", noteId, users);
+//
+//        List<SseEmitter> failedEmitters = new ArrayList<>();
+//        for (SseEmitter emitter : emitters) {
+//            try {
+//                emitter.send(SseEmitter.event().name("user-presence").data(users));
+//            } catch (IOException e) {
+//                logger.error("Failed to send SSE update for note {}: {}", noteId, e.getMessage());
+//                failedEmitters.add(emitter);
+//                emitter.complete();
+//            }
+//        }
+//        emitters.removeAll(failedEmitters);
+//        if (emitters.isEmpty()) {
+//            presenceEmitters.remove(noteId);
+//        }
+//    }
+
     public void notifyPresenceUpdate(UUID noteId) {
         String key = noteId.toString();
         List<SseEmitter> emitters = presenceEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>());
@@ -172,30 +199,38 @@ public class PresenceController {
 
         logger.info("Notifying presence update for note {}: {}", noteId, users);
 
+        // Use a thread-safe list to collect emitters that fail.
         List<SseEmitter> failedEmitters = new ArrayList<>();
+
+        // For each emitter, send the event asynchronously.
         for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event().name("user-presence").data(users));
-            } catch (IOException e) {
-                logger.error("Failed to send SSE update for note {}: {}", noteId, e.getMessage());
-                failedEmitters.add(emitter);
-                emitter.complete();
-            }
+            CompletableFuture.runAsync(() -> {
+                try {
+                    emitter.send(SseEmitter.event().name("user-presence").data(users));
+                } catch (IOException e) {
+                    logger.error("Failed to send SSE update for note {}: {}", noteId, e.getMessage());
+                    failedEmitters.add(emitter);
+                    emitter.complete();
+                }
+            });
         }
+
+        // Remove the failed emitters from the list.
         emitters.removeAll(failedEmitters);
         if (emitters.isEmpty()) {
             presenceEmitters.remove(noteId);
         }
     }
 
+
     /**
      * Remove a disconnected SSE subscriber.
      */
-//    private void removeEmitter(UUID noteId, SseEmitter emitter) {
-//        presenceEmitters.computeIfPresent(noteId, (key, emitters) -> {
-//            emitters.remove(emitter);
-//            return emitters.isEmpty() ? null : emitters;
-//        });
+    private void removeEmitter(UUID noteId, SseEmitter emitter) {
+        presenceEmitters.computeIfPresent(noteId, (key, emitters) -> {
+            emitters.remove(emitter);
+            return emitters.isEmpty() ? null : emitters;
+        });
 //        notifyPresenceUpdate(noteId);
-//    }
+    }
 }

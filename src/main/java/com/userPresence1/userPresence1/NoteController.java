@@ -53,7 +53,7 @@ public class NoteController {
     /** Save updated note content */
     @PostMapping("/save")
     public ResponseEntity<String> saveNote(@RequestBody Map<String, String> request) {
-        logger.info("🟢 Received API call: /save");
+        logger.info("Received API call: /save");
 
         if (!request.containsKey("noteId") || !request.containsKey("content")) {
             return ResponseEntity.badRequest().body("Invalid request data");
@@ -126,7 +126,7 @@ public class NoteController {
 //                        .name("content-update")
 //                        .data(Map.of("title", "Note " + noteId.toString(), "content", updatedContent)));
 //            } catch (IOException e) {
-//                logger.error("❌ Error sending SSE update: {}", e.getMessage());
+//                logger.error("Error sending SSE update: {}", e.getMessage());
 //                failedEmitters.add(emitter);
 //            }
 //        }
@@ -151,7 +151,7 @@ public class NoteController {
                 try {
                     emitter.send(SseEmitter.event().name("content-update").data(data));
                 } catch (IOException e) {
-                    logger.error("❌ Error sending SSE update for note {}: {}", noteId, e.getMessage());
+                    logger.error("Error sending SSE update for note {}: {}", noteId, e.getMessage());
                     failedEmitters.add(emitter);
                     emitter.complete();
                 }
@@ -186,7 +186,7 @@ public class NoteController {
         Note savedNote = noteService.createNote(title, content);
         notes.put(savedNote.getId(), savedNote.getContent());
 
-        notifyClients(savedNote.getId(), savedNote.getContent());
+//        notifyClients(savedNote.getId(), savedNote.getContent());
         broadcastNewNote(savedNote);
 
         return ResponseEntity.ok(Map.of(
@@ -219,21 +219,21 @@ public class NoteController {
         List<Map<String, String>> noteList = new ArrayList<>();
 
         // Optional hardcoded notes for demonstration
-        noteList.add(Map.of(
-                "id", "eab35bf6-1430-417d-95fd-2568b6b94098",
-                "title", "Note 1",
-                "content", "Learn about components, services, and routing."
-        ));
-        noteList.add(Map.of(
-                "id", "dc23fa4a-40e6-48cd-bdd2-a7ded358db2d",
-                "title", "Note 2",
-                "content", "Understanding controllers, services, and repositories."
-        ));
-        noteList.add(Map.of(
-                "id", "ce61491d-b41f-4c85-9d7c-95418db32205",
-                "title", "Note 3",
-                "content", "Real-time updates using Server-Sent Events."
-        ));
+//        noteList.add(Map.of(
+//                "id", "eab35bf6-1430-417d-95fd-2568b6b94098",
+//                "title", "Case 1",
+//                "content", "Learn about components, services, and routing."
+//        ));
+//        noteList.add(Map.of(
+//                "id", "dc23fa4a-40e6-48cd-bdd2-a7ded358db2d",
+//                "title", "Case 2",
+//                "content", "Understanding controllers, services, and repositories."
+//        ));
+//        noteList.add(Map.of(
+//                "id", "ce61491d-b41f-4c85-9d7c-95418db32205",
+//                "title", "Case 3",
+//                "content", "Real-time updates using Server-Sent Events."
+//        ));
 
         // Add notes from the database
         noteService.getAllNotes().forEach(note ->

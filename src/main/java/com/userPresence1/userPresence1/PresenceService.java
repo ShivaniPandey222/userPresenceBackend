@@ -21,7 +21,7 @@ public class PresenceService {
 
     @PostConstruct
     public void startupCleanup() {
-        logger.info("🧹 Cleaning up old presence data...");
+        logger.info("Cleaning up old presence data...");
         Set<String> keys = redisTemplate.keys("presence:*");
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
