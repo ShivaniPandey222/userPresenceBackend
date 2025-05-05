@@ -292,6 +292,7 @@ package com.userPresence1.userPresence1;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -309,9 +310,11 @@ public class NoteController {
     private final Map<UUID, String> notes = new ConcurrentHashMap<>();
     private final Map<UUID, CopyOnWriteArrayList<SseEmitter>> noteEmitters = new ConcurrentHashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(NoteController.class);
-
-    public NoteController(NoteService noteService) {
+    
+    private final Executor sseExecutor;
+    public NoteController(NoteService noteService,@Qualifier("sseExecutor") Executor sseExecutor) {
         this.noteService = noteService;
+        this.sseExecutor = sseExecutor;
         for (Note note : noteService.getAllNotes()) {
             notes.put(note.getId(), note.getContent());
         }
@@ -356,27 +359,35 @@ public class NoteController {
         emitter.onCompletion(() -> removeEmitter(noteId, emitter));
         emitter.onTimeout(() -> removeEmitter(noteId, emitter));
         emitter.onError((e) -> removeEmitter(noteId, emitter));
-
+        sseExecutor.execute(() -> {
         try {
             emitter.send(SseEmitter.event().name("connection").data("Connected to SSE"));
         } catch (IOException e) {
             emitter.complete();
         }
+        });
         return emitter;
     }
-
-    private void notifyClients(UUID noteId, String updatedContent) {
+    
+        private void notifyClients(UUID noteId, String updatedContent) {
         CopyOnWriteArrayList<SseEmitter> emitters = noteEmitters.getOrDefault(noteId, new CopyOnWriteArrayList<>());
         List<SseEmitter> failedEmitters = new ArrayList<>();
-        Map<String, String> data = Map.of("title", "Note " + noteId.toString(), "content", updatedContent);
+        Map<String, String> data = Map.of(
+                "title", "Note " + noteId.toString(),
+                "content", updatedContent
+        );
 
+        // Send SSE events asynchronously to avoid blocking the HTTP request
         for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event().name("content-update").data(data));
-            } catch (IOException e) {
-                failedEmitters.add(emitter);
-                emitter.complete();
-            }
+            CompletableFuture.runAsync(() -> {
+                try {
+                    emitter.send(SseEmitter.event().name("content-update").data(data));
+                } catch (IOException e) {
+                    logger.error("Error sending SSE update for note {}: {}", noteId, e.getMessage());
+                    failedEmitters.add(emitter);
+                    emitter.complete();
+                }
+            });
         }
 
         emitters.removeAll(failedEmitters);
@@ -404,8 +415,26 @@ public class NoteController {
         Note savedNote = noteService.createNote(title, content);
         notes.put(savedNote.getId(), savedNote.getContent());
         notifyClients(savedNote.getId(), savedNote.getContent());
-
+        broadcastNewNote(savedNote);
         return ResponseEntity.ok(Map.of("noteId", savedNote.getId().toString(), "message", "Note created successfully"));
+    }
+   
+    private void broadcastNewNote(Note note) {
+        Map<String, String> noteData = Map.of(
+                "id", note.getId().toString(),
+                "title", note.getTitle(),
+                "content", note.getContent()
+        );
+        for (SseEmitter emitter : globalEmitters) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("new-note")
+                        .data(noteData));
+            } catch (IOException e) {
+                emitter.complete();
+                globalEmitters.remove(emitter);
+            }
+        }
     }
 
     @DeleteMapping("/{noteId}")
@@ -446,21 +475,22 @@ public class NoteController {
     // In your NoteController class, add a global list for SSE emitters:
     private final List<SseEmitter> globalEmitters = new CopyOnWriteArrayList<>();
         // Add a new endpoint to subscribe to global new-note events:
-    @GetMapping("/subscribeNew/global")
-    public SseEmitter subscribeToGlobalNotes() {
-        SseEmitter emitter = new SseEmitter(15000L);
-        globalEmitters.add(emitter);
-
-        emitter.onCompletion(() -> globalEmitters.remove(emitter));
-        emitter.onTimeout(() -> globalEmitters.remove(emitter));
-        emitter.onError(e -> globalEmitters.remove(emitter));
-
-        try {
-            emitter.send(SseEmitter.event().name("connection").data("Connected to global SSE"));
-        } catch (IOException e) {
-            emitter.complete();
-        }
-        return emitter;
-    }
+//    @GetMapping("/subscribeNew/global")
+//    public SseEmitter subscribeToGlobalNotes() {
+//        SseEmitter emitter = new SseEmitter(15000L);
+//        globalEmitters.add(emitter);
+//
+//        emitter.onCompletion(() -> globalEmitters.remove(emitter));
+//        emitter.onTimeout(() -> globalEmitters.remove(emitter));
+//        emitter.onError(e -> globalEmitters.remove(emitter));
+//        sseExecutor.execute(() -> {
+//            try {
+//                emitter.send(SseEmitter.event().name("connection").data("Connected to global SSE"));
+//            } catch (IOException e) {
+//                emitter.complete();
+//            }
+//        });
+//        return emitter;
+//    }
 }
 

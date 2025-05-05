@@ -243,6 +243,7 @@ package com.userPresence1.userPresence1;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -260,9 +261,11 @@ public class PresenceController {
     private final PresenceService presenceService;
     private final Map<UUID, CopyOnWriteArrayList<SseEmitter>> presenceEmitters = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
+    private final Executor sseExecutor;
 
-    public PresenceController(PresenceService presenceService) {
+    public PresenceController(PresenceService presenceService,@Qualifier("sseExecutor") Executor sseExecutor) {
         this.presenceService = presenceService;
+        this.sseExecutor = sseExecutor;
     }
 
     @PostMapping("/update")
@@ -311,12 +314,13 @@ public class PresenceController {
         emitter.onCompletion(() -> removeEmitter(noteId, emitter));
         emitter.onTimeout(() -> removeEmitter(noteId, emitter));
         emitter.onError((e) -> removeEmitter(noteId, emitter));
-
-        try {
-            emitter.send(SseEmitter.event().name("connection").data("Connected to SSE"));
-        } catch (IOException e) {
-            emitter.complete();
-        }
+        sseExecutor.execute(() -> {
+                try {
+                    emitter.send(SseEmitter.event().name("connection").data("Connected to SSE"));
+                } catch (IOException e) {
+                    emitter.complete();
+                }
+            });
 
         // Heartbeat every 30 seconds
         scheduler.scheduleAtFixedRate(() -> {
@@ -336,12 +340,14 @@ public class PresenceController {
 
         List<SseEmitter> failedEmitters = new ArrayList<>();
         for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event().name("user-presence").data(users));
-            } catch (IOException e) {
-                failedEmitters.add(emitter);
-                emitter.complete();
-            }
+            sseExecutor.execute(() -> {
+                try {
+                    emitter.send(SseEmitter.event().name("user-presence").data(users));
+                } catch (IOException e) {
+                    failedEmitters.add(emitter);
+                    emitter.complete();
+                }
+            });
         }
 
         emitters.removeAll(failedEmitters);
