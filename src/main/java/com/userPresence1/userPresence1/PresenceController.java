@@ -277,7 +277,13 @@ public class PresenceController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid request"));
         }
 
-        UUID noteId = UUID.fromString(noteIdStr);
+       UUID noteId;
+    try {
+        noteId = UUID.fromString(noteIdStr);
+    } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Invalid UUID format for noteId"));
+    }
+
         presenceService.addUser(noteId.toString(), username);
         notifyPresenceUpdate(noteId);
 
@@ -296,7 +302,13 @@ public class PresenceController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid request"));
         }
 
-        UUID noteId = UUID.fromString(noteIdStr);
+       UUID noteId;
+    try {
+        noteId = UUID.fromString(noteIdStr);
+    } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Invalid UUID format for noteId"));
+    }
+
         presenceService.removeUser(noteId.toString(), username);
         notifyPresenceUpdate(noteId);
 
