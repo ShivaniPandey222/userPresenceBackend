@@ -29,7 +29,7 @@ pipeline {
                     // For example: dir('backend-service') {
                     // If pom.xml IS at the root, you can remove the 'dir' block.
                     // dir('your-project-subdirectory') { // <---- UNCOMMENT AND REPLACE THIS LINE IF NEEDED
-                        sh 'mvn clean package -DskipTests'
+                        sh 'mvn clean install -U'
                     // } // <---- UNCOMMENT THIS LINE IF NEEDED
                 }
             }
