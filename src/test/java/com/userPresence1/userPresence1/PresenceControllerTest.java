@@ -113,7 +113,7 @@ class PresenceControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestBody)))
                 .andExpect(status().isBadRequest()) // Expect HTTP 400 Bad Request
-                .andExpect(jsonPath("$.error").value("Invalid note ID format"));
+                .andExpect(jsonPath("$.error").value("Invalid UUID format for noteId"));
 
         // Verify that presenceService.addUser was NOT called
         verify(presenceService, never()).addUser(anyString(), anyString());
