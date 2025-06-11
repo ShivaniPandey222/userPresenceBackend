@@ -52,7 +52,19 @@
 			<artifactId>lettuce-core</artifactId>
 			<version>6.3.1.RELEASE</version>
 		</dependency>
-
+  <!-- Add or ensure these logging dependencies are present for tests -->
+    <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>2.0.13</version> <!-- Use a recent version, or let Spring Boot manage it -->
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>1.5.6</version> <!-- Use a recent version, or let Spring Boot manage it -->
+        <scope>test</scope>
+    </dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
