@@ -8,6 +8,7 @@ class UserPresence1ApplicationTests {
 
 	@Test
 	void contextLoads() {
+		System.out.println("shivani testing");
 	}
 
 }
