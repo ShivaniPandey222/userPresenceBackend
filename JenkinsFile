@@ -1,0 +1,99 @@
+// Jenkinsfile
+pipeline {
+    agent any // This tells Jenkins to run the pipeline on any available agent
+
+    tools {
+        // IMPORTANT: These names MUST EXACTLY match what you configured in
+        // Jenkins -> Manage Jenkins -> Global Tool Configuration
+        maven 'maven' // Use the EXACT name from your Jenkins setup (e.g., 'Maven 3.8.6' or 'maven')
+        jdk 'jdk17'   // Use the EXACT name from your Jenkins setup (e.g., 'Java 17' or 'jdk17')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Jenkins automatically checks out the SCM when 'Pipeline script from SCM' is used.
+                // This stage is mostly for clarity and to confirm the checkout happened.
+                echo 'Source code checked out by Jenkins into the workspace.'
+                // If you suspect issues, you can add 'sh "ls -l"' here to inspect the workspace content.
+                // sh "ls -l"
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Starting application build with Maven...'
+                script {
+                    // IMPORTANT: If your pom.xml is NOT at the repository root,
+                    // UNCOMMENT and REPLACE 'your-project-subdirectory' with the actual folder name.
+                    // For example: dir('backend-service') {
+                    // If pom.xml IS at the root, you can remove the 'dir' block.
+                    // dir('your-project-subdirectory') { // <---- UNCOMMENT AND REPLACE THIS LINE IF NEEDED
+                        sh 'mvn clean package -DskipTests'
+                    // } // <---- UNCOMMENT THIS LINE IF NEEDED
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Running unit and integration tests...'
+                script {
+                    // IMPORTANT: If your pom.xml is NOT at the repository root,
+                    // UNCOMMENT and REPLACE 'your-project-subdirectory' with the actual folder name.
+                    // For example: dir('backend-service') {
+                    // If pom.xml IS at the root, you can remove the 'dir' block.
+                    // dir('your-project-subdirectory') { // <---- UNCOMMENT AND REPLACE THIS LINE IF NEEDED
+                        sh 'mvn test -X -e' // -X -e for verbose output for debugging test reports
+                        // Adjust JUnit path if your surefire-reports are relative to the subdirectory
+                        // For example: junit 'your-project-subdirectory/target/surefire-reports/*.xml'
+                        junit '**/target/surefire-reports/*.xml'
+                    // } // <---- UNCOMMENT THIS LINE IF NEEDED
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deployment stage: This is where the actual deployment logic goes.'
+                echo 'For now, we are just printing a message. You will customize this.'
+                // Example for SSH deployment (requires "Publish over SSH" plugin and config)
+                // script {
+                //     sshPublisher(
+                //         publishers: [
+                //             sshPublisherDesc(
+                //                 configName: 'MyRemoteServer', // Replace with your SSH config name
+                //                 transfers: [
+                //                     sshTransfer(
+                //                         sourceFiles: 'your-project-subdirectory/target/*.jar', // Adjust path
+                //                         removePrefix: 'your-project-subdirectory/target/',
+                //                         remoteDirectory: '/path/to/your/app',
+                //                         execCommand: '''
+                //                             sudo systemctl stop userpresencebackend || true
+                //                             sudo cp /path/to/your/app/userPresenceBackend.jar /path/to/your/app/userPresenceBackend.jar
+                //                             sudo systemctl start userpresencebackend
+                //                         '''
+                //                     )
+                //                 ]
+                //             )
+                //         ]
+                //     )
+                // }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline run finished.'
+            // Consider adding cleanWs() here for cleanup after the build completes.
+            // cleanWs()
+        }
+        success {
+            echo 'SUCCESS: Build, Test, and (placeholder) Deployment completed successfully!'
+        }
+        failure {
+            echo 'FAILURE: Build, Test, or (placeholder) Deployment failed!'
+        }
+    }
+}
