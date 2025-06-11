@@ -35,7 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Test class for the PresenceController.
  * Uses @WebMvcTest to test only the web layer, and mocks other service dependencies.
  */
-@WebMvcTest(PresenceController.class) // Focuses on testing the web layer for PresenceController
+@WebMvcTest(PresenceController.class,
+excludeAutoConfiguration = SecurityAutoConfiguration.class ) // Focuses on testing the web layer for PresenceController
 class PresenceControllerTest {
 
     @Autowired
