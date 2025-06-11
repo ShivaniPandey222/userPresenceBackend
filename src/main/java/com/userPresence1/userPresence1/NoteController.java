@@ -475,22 +475,22 @@ public class NoteController {
     // In your NoteController class, add a global list for SSE emitters:
     private final List<SseEmitter> globalEmitters = new CopyOnWriteArrayList<>();
         // Add a new endpoint to subscribe to global new-note events:
-//    @GetMapping("/subscribeNew/global")
-//    public SseEmitter subscribeToGlobalNotes() {
-//        SseEmitter emitter = new SseEmitter(15000L);
-//        globalEmitters.add(emitter);
-//
-//        emitter.onCompletion(() -> globalEmitters.remove(emitter));
-//        emitter.onTimeout(() -> globalEmitters.remove(emitter));
-//        emitter.onError(e -> globalEmitters.remove(emitter));
-//        sseExecutor.execute(() -> {
-//            try {
-//                emitter.send(SseEmitter.event().name("connection").data("Connected to global SSE"));
-//            } catch (IOException e) {
-//                emitter.complete();
-//            }
-//        });
-//        return emitter;
-//    }
+    @GetMapping("/subscribeNew/global")
+    public SseEmitter subscribeToGlobalNotes() {
+        SseEmitter emitter = new SseEmitter(15000L);
+        globalEmitters.add(emitter);
+
+        emitter.onCompletion(() -> globalEmitters.remove(emitter));
+        emitter.onTimeout(() -> globalEmitters.remove(emitter));
+        emitter.onError(e -> globalEmitters.remove(emitter));
+        sseExecutor.execute(() -> {
+            try {
+                emitter.send(SseEmitter.event().name("connection").data("Connected to global SSE"));
+            } catch (IOException e) {
+                emitter.complete();
+            }
+        });
+        return emitter;
+    }
 }
 

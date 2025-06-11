@@ -308,7 +308,7 @@ public class PresenceController {
 
     @GetMapping("/subscribe/{noteId}")
     public SseEmitter subscribeToPresence(@PathVariable UUID noteId) {
-        SseEmitter emitter = new SseEmitter(15000L);  // Timeout after 60 seconds
+        SseEmitter emitter = new SseEmitter(0L);  // No timeout
         presenceEmitters.computeIfAbsent(noteId, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
         emitter.onCompletion(() -> removeEmitter(noteId, emitter));
